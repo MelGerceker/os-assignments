@@ -39,6 +39,35 @@ int main (int argc, char * argv[])
     //      - send the request to the Req message queue
     //    until there are no more requests to send
     //  * close the message queue
+
+    // for each job request:
+
+    MQ_REQUEST_MESSAGE  req;
+    req.jobID = 0;
+    req.data = 0;
+    req.serviceID = 0;
+    // shouldnt be zero but should be filled from
+    //getNextRequest()
+
+    // mq_send (mq_fd_request, (char *) &req, sizeof (req), 0);
+    // validate that send did not have perror()
     
     return (0);
 }
+
+// copied and modified from interprocess_basics.c
+// not sure if i have to copy this?
+typedef struct
+{
+    // a data structure with 3 members
+    int                     jobID;
+    int                     data;
+    char                    serviceID;
+} MQ_REQUEST_MESSAGE;
+
+// to open req queue in read only, name will be sent from
+// router dealer.
+// mq_fd_request = mq_open (mq_name1, O_RDONLY);
+
+// to push to req queueu:
+// mq_send (mq_fd_request, (char *) &req, sizeof (req), 0);
