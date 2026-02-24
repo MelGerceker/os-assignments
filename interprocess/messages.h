@@ -24,4 +24,16 @@ typedef struct
     int jobID, data, serviceID;
 } MQ_REQUEST_MESSAGE;
 
+typedef struct
+{
+    // a data structure with 3 members
+    int jobID, result;
+} MQ_RESPONSE_MESSAGE;
+
+typedef struct
+{
+    // a data structure with 3 members
+    int jobID, data;
+} MQ_WORKER_MESSAGE;
+
 #endif
