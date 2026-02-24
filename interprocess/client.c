@@ -27,6 +27,14 @@
 
 static void rsleep (int t);
 
+typedef struct
+{
+    // a data structure with 3 members
+    int                     jobID;
+    int                     data;
+    char                    serviceID;
+} MQ_REQUEST_MESSAGE;
+
 
 int main (int argc, char * argv[])
 {
@@ -43,31 +51,44 @@ int main (int argc, char * argv[])
     // for each job request:
 
     MQ_REQUEST_MESSAGE  req;
-    req.jobID = 0;
-    req.data = 0;
-    req.serviceID = 0;
-    // shouldnt be zero but should be filled from
-    //getNextRequest()
+    mqd_t               mq_fd_request;
 
-    // mq_send (mq_fd_request, (char *) &req, sizeof (req), 0);
-    // validate that send did not have perror()
+
+    int jobID, data, serviceID;
+
+    while(1){
+
+        int nextJob = getNextRequest(&jobID, &data, &serviceID);
+
+        if (nextJob == NO_REQ) {
+        // no requests to make
+        break;
+
+        }
+        else {
+        // means everything is good, NO_ERR
+        // fill the msg
+        req.jobID = jobID;
+        req.data = data;
+        req.serviceID = serviceID;
+
+        mq_send (mq_fd_request, (char *) &req, sizeof (req), 0);
+        // validate that send did not have perror()
+
+        }
+
+    }
+
+    // release resources
+    mq_close(mq_fd_request);
+    
     
     return (0);
 }
 
-// copied and modified from interprocess_basics.c
-// not sure if i have to copy this?
-typedef struct
-{
-    // a data structure with 3 members
-    int                     jobID;
-    int                     data;
-    char                    serviceID;
-} MQ_REQUEST_MESSAGE;
+
+
 
 // to open req queue in read only, name will be sent from
 // router dealer.
 // mq_fd_request = mq_open (mq_name1, O_RDONLY);
-
-// to push to req queueu:
-// mq_send (mq_fd_request, (char *) &req, sizeof (req), 0);
