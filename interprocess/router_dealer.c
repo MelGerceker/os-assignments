@@ -56,7 +56,7 @@ void init_w1_processes()
     if (processID == 0)
     {
       // Child process: execute worker for service 1
-      execlp("./worker_s1", "./worker_s1", NULL);
+      execlp("./worker_s1", "./worker_s1", worker2dealer_name, dealer2worker1_name, NULL);
       // Child process should never reach this point, if execlp is successful
       perror("execlp failed");
       exit(1);
@@ -87,7 +87,7 @@ void init_w2_processes()
     if (processID == 0)
     {
       // Child process: execute worker for service 2
-      execlp("./worker_s2", "./worker_s2", NULL);
+      execlp("./worker_s2", "./worker_s2", worker2dealer_name, dealer2worker2_name, NULL);
       // Child process should never reach this point, if execlp is successful
       perror("execlp failed");
       exit(1);
@@ -112,7 +112,7 @@ void init_client_process()
   if (client_pid == 0)
   {
     // Child process: execute client
-    execlp("./client", "./client", NULL);
+    execlp("./client", "./client", client2dealer_name, NULL);
     // Child process should never reach this point, if execlp is successful
     perror("execlp failed");
     exit(1);
@@ -176,13 +176,14 @@ int main(int argc, char *argv[])
   //  * read requests from the Req queue and transfer them to the workers
   //    with the Sx queues
   int status;
+  int pending_jobs = 0;
   pid_t terminated_client_pid = 0;
   pid_t terminated_worker_pid = 0;
-  //To track how many responses we
+  // To track how many responses we
 
   // Loop until the client process has terminated (no more requests can be added)
   // and there are no more requests in the queue
-  while (terminated_client_pid != client_pid && get_mq_attr(mq_fd_request).mq_curmsgs > 0)
+  while (terminated_client_pid != client_pid || get_mq_attr(mq_fd_request).mq_curmsgs > 0)
   {
     // Repeatedly check if client process has terminated
     if (terminated_client_pid != client_pid)
@@ -207,23 +208,60 @@ int main(int argc, char *argv[])
       {
         mq_send(mq_fd_worker2, (char *)&worker_msg, sizeof(worker_msg), 0);
       }
-
-      // extract the responses if there are any and output them
-      if (get_mq_attr(mq_fd_response).mq_curmsgs > 0)
-      {
-        mq_receive(mq_fd_response, (char *)&rsp_msg, sizeof(rsp_msg), NULL);
-        printf("%d -> %d\n", rsp_msg.jobID, rsp_msg.result);
-      }
+      pending_jobs++;
     }
-
-    //
-
-    //  * read answers from workers in the Rep queue and print them
-    //  * wait until the client has been stopped (see process_test())
-    //  * clean up the message queues (see message_queue_test())
-
-    // Important notice: make sure that the names of the message queues
-    // contain your goup number (to ensure uniqueness during testing)
-
-    return (0);
+    // extract the responses if there are any and output them
+    if (get_mq_attr(mq_fd_response).mq_curmsgs > 0)
+    {
+      mq_receive(mq_fd_response, (char *)&rsp_msg, sizeof(rsp_msg), NULL);
+      printf("%d -> %d\n", rsp_msg.jobID, rsp_msg.result);
+      pending_jobs--;
+    }
   }
+
+  // wait for all jobs to be done
+  while (pending_jobs > 0)
+  {
+    mq_receive(mq_fd_response, (char *)&rsp_msg, sizeof(rsp_msg), NULL);
+    printf("%d -> %d\n", rsp_msg.jobID, rsp_msg.result);
+    pending_jobs--;
+  }
+
+  // Terminate workers:
+  worker_msg.jobID = -1; // signal for termination
+  worker_msg.data = -1;  // signal for termination
+  for (int i = 0; i < N_SERV1; ++i)
+    mq_send(mq_fd_worker1, (char *)&worker_msg, sizeof(worker_msg), 0);
+
+  for (int i = 0; i < N_SERV2; ++i)
+    mq_send(mq_fd_worker2, (char *)&worker_msg, sizeof(worker_msg), 0);
+
+  // Reap workers
+  for (int i = 0; i < N_SERV1; ++i)
+    waitpid(worker1_pids[i], &status, 0);
+
+  for (int i = 0; i < N_SERV2; ++i)
+    waitpid(worker2_pids[i], &status, 0);
+
+  //
+
+  // Cleanup
+  mq_close(mq_fd_worker1);
+  mq_close(mq_fd_worker2);
+  mq_close(mq_fd_response);
+  mq_close(mq_fd_request);
+
+  mq_unlink(client2dealer_name);
+  mq_unlink(worker2dealer_name);
+  mq_unlink(dealer2worker1_name);
+  mq_unlink(dealer2worker2_name);
+
+  //  * read answers from workers in the Rep queue and print them
+  //  * wait until the client has been stopped (see process_test())
+  //  * clean up the message queues (see message_queue_test())
+
+  // Important notice: make sure that the names of the message queues
+  // contain your goup number (to ensure uniqueness during testing)
+
+  return (0);
+}
