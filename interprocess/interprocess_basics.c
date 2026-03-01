@@ -115,6 +115,8 @@ message_queue_child (void)
     MQ_REQUEST_MESSAGE  req;
     MQ_RESPONSE_MESSAGE rsp;
 
+    printf("child: using message queue name '%s'\n", mq_name1);
+
     mq_fd_request = mq_open (mq_name1, O_RDONLY);
     mq_fd_response = mq_open (mq_name2, O_WRONLY);
 
