@@ -27,14 +27,6 @@
 
 static void rsleep (int t);
 
-typedef struct
-{
-    // a data structure with 3 members
-    int                     jobID;
-    int                     data;
-    char                    serviceID;
-} MQ_REQUEST_MESSAGE;
-
 
 int main (int argc, char * argv[])
 {
@@ -56,7 +48,13 @@ int main (int argc, char * argv[])
 
     int jobID, data, serviceID;
 
+    const char * mq_name1 = argv[1];
+
     while(1){
+
+
+       // to open req queue in read only, name will be sent from router dealer.
+        mq_fd_request = mq_open(mq_name1, O_RDONLY);
 
         int nextJob = getNextRequest(&jobID, &data, &serviceID);
 
@@ -85,10 +83,3 @@ int main (int argc, char * argv[])
     
     return (0);
 }
-
-
-
-
-// to open req queue in read only, name will be sent from
-// router dealer.
-// mq_fd_request = mq_open (mq_name1, O_RDONLY);
