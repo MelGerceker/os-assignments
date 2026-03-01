@@ -40,11 +40,9 @@ int main (int argc, char * argv[])
     //    until there are no more requests to send
     //  * close the message queue
 
-    // for each job request:
 
     MQ_REQUEST_MESSAGE  req;
     mqd_t               mq_fd_request;
-
 
     int jobID, data, serviceID;
 
@@ -64,15 +62,17 @@ int main (int argc, char * argv[])
 
         }
         else {
+
         // means everything is good, NO_ERR
         // fill the msg
         req.jobID = jobID;
         req.data = data;
         req.serviceID = serviceID;
 
-        mq_send (mq_fd_request, (char *) &req, sizeof (req), 0);
-        // validate that send did not have perror()
-
+        if (mq_send (mq_fd_request, (char *) &req, sizeof (req), 0) == -1) {
+            perror("message send failed");
+        }
+        
         }
 
     }
