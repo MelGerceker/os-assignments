@@ -84,7 +84,7 @@ int main (int argc, char * argv[])
             break;
         }
 
-        int res = service1(job.data);
+        int res = service(job.data);
 
         //required random sleep between receiving and sending
         rsleep(10000);
