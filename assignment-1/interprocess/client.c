@@ -80,6 +80,5 @@ int main (int argc, char * argv[])
     // release resources
     mq_close(mq_fd_request);
     
-    
     return (0);
 }
