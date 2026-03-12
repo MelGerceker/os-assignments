@@ -73,23 +73,33 @@ static void* manage_light(void* arg)
   //  - make the traffic light turn red
   //  - unlock the right mutex(es)
 
+  // is this the right mutex(es)? this is  made global?
   static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
 
 
-  while ( start_time  != END_TIME){
+    int side = ((int*)arg)[0];
+    int direction = ((int*)arg)[1];
+    int index = 0;
 
-    // when can we make the light turn green?
+  while ( get_time_passed() < END_TIME){
 
-    //another light is green
-    // no request for that lane
 
-    
+    sem_wait(&semaphores[side][direction]);
+
+    Arrival arrival = curr_arrivals[side][direction][index];
+    index++;
+
+
     pthread_mutex_lock (&mutex);
 
 
+    // turn light green
+    printf("traffic light %d %d turns green at time %d for car %d" , arrival.side, arrival.direction, get_time_passed(), arrival.id);
+
     sleep(CROSS_TIME);
 
-
+    //turn light red
+    printf("traffic light %d %d turns red at time %d", arrival.side, arrival.direction, get_time_passed());
 
     pthread_mutex_unlock (&mutex);
 
