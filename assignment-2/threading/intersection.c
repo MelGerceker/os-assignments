@@ -126,9 +126,22 @@ int main(int argc, char * argv[])
 
   // TODO: create a thread per traffic light that executes manage_light
 
-  // TODO: create a thread that executes supply_arrivals
+  pthread_t threads[4];
+  for(int i = 0; i < 4; i++){
+    pthread_create(&threads[i], NULL, manage_light, i);
+  }
 
-  // TODO: wait for all threads to finish
+  // TODO: create a thread that executes supply_arrivals
+  pthread_t sup_arr_thread = pthread_create(&sup_arr_thread, NULL, supply_arrivals, NULL);
+  
+
+  // TODO: wait for all threads to finish'
+  pthread_join(sup_arr_thread, NULL);
+  for (int i = 0; i < 4; i++)
+  { 
+    pthread_join(threads[i], NULL);
+  }
+  
 
   // destroy semaphores
   for (int i = 0; i < 4; i++)
