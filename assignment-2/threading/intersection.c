@@ -245,6 +245,11 @@ int main(int argc, char *argv[])
     }
   }
 
+  for (int i = 0; i < 7; i++)
+  {
+    pthread_mutex_init(&path_mutexes[i], NULL);
+  }
+
   int location[12][2];
 
   // start the timer
@@ -300,5 +305,10 @@ int main(int argc, char *argv[])
     {
       sem_destroy(&semaphores[i][j]);
     }
+  }
+
+  for (int i = 0; i < 7; i++)
+  {
+    pthread_mutex_destroy(&path_mutexes[i]);
   }
 }
