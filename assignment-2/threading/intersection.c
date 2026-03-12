@@ -73,6 +73,29 @@ static void* manage_light(void* arg)
   //  - make the traffic light turn red
   //  - unlock the right mutex(es)
 
+  static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
+
+
+  while ( start_time  != END_TIME){
+
+    // when can we make the light turn green?
+
+    //another light is green
+    // no request for that lane
+
+    
+    pthread_mutex_lock (&mutex);
+
+
+    sleep(CROSS_TIME);
+
+
+
+    pthread_mutex_unlock (&mutex);
+
+
+  }
+
   return(0);
 }
 
