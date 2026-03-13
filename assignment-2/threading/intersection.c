@@ -56,13 +56,16 @@ static void* supply_arrivals()
   return(0);
 }
 
+// made global since 1 car allowed
+static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
+
 
 /*
  * manage_light(void* arg)
  *
  * A function that implements the behaviour of a traffic light
  */
-static void* manage_light(void* arg)
+static void* manage_light(void * arg)
 {
   // TODO:
   // while it is not END_TIME yet, repeatedly:
@@ -73,18 +76,23 @@ static void* manage_light(void* arg)
   //  - make the traffic light turn red
   //  - unlock the right mutex(es)
 
-  // is this the right mutex(es)? this is  made global?
-  static pthread_mutex_t      mutex          = PTHREAD_MUTEX_INITIALIZER;
 
-
-    int side = ((int*)arg)[0];
-    int direction = ((int*)arg)[1];
+    int* info = (int*) arg;
+    Side side = info[0];
+    Direction direction = info[1];
     int index = 0;
 
   while ( get_time_passed() < END_TIME){
 
+      // only semwait doesnt terminate?
 
-    sem_wait(&semaphores[side][direction]);
+    //sem_wait(&semaphores[side][direction]);
+    //tried:
+    if (sem_trywait(&semaphores[side][direction]) == -1)
+{
+    usleep(1000);
+    continue;
+}
 
     Arrival arrival = curr_arrivals[side][direction][index];
     index++;
@@ -94,12 +102,12 @@ static void* manage_light(void* arg)
 
 
     // turn light green
-    printf("traffic light %d %d turns green at time %d for car %d" , arrival.side, arrival.direction, get_time_passed(), arrival.id);
+    printf("traffic light %d %d turns green at time %d for car %d\n" , arrival.side, arrival.direction, get_time_passed(), arrival.id);
 
     sleep(CROSS_TIME);
 
     //turn light red
-    printf("traffic light %d %d turns red at time %d", arrival.side, arrival.direction, get_time_passed());
+    printf("traffic light %d %d turns red at time %d\n", arrival.side, arrival.direction, get_time_passed());
 
     pthread_mutex_unlock (&mutex);
 
@@ -121,23 +129,42 @@ int main(int argc, char * argv[])
     }
   }
 
+  int location[12][2];
+
   // start the timer
   start_time();
 
   // TODO: create a thread per traffic light that executes manage_light
+    
+  pthread_t threads[12];
+  int t = 0;
+  for(int side = 0; side<4; side++){
+    for (int direction=0; direction<3;direction++){
+      location[t][0] = side;
+      location[t][1] = direction;
 
-  pthread_t threads[4];
-  for(int i = 0; i < 4; i++){
-    pthread_create(&threads[i], NULL, manage_light, i);
+      pthread_create(&threads[t], NULL, manage_light, (void*)location[t]); //added void here bc error???
+      t++;
+
+
+    }
   }
 
+
+//  pthread_t threads[4];
+  //for(int i = 0; i < 4; i++){
+    //pthread_create(&threads[i], NULL, manage_light, (void*)&i); //added void here bc error???
+ // }
+  
+
   // TODO: create a thread that executes supply_arrivals
-  pthread_t sup_arr_thread = pthread_create(&sup_arr_thread, NULL, supply_arrivals, NULL);
+  pthread_t sup_arr_thread;
+  pthread_create(&sup_arr_thread, NULL, supply_arrivals, NULL);
   
 
   // TODO: wait for all threads to finish'
   pthread_join(sup_arr_thread, NULL);
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < 12; i++)
   { 
     pthread_join(threads[i], NULL);
   }
