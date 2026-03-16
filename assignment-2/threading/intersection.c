@@ -85,15 +85,7 @@ static void *manage_light(void *arg)
   while (get_time_passed() < END_TIME)
   {
 
-    // only semwait doesnt terminate?
-
     sem_wait(&semaphores[side][direction]);
-    // tried:
-    // if (sem_trywait(&semaphores[side][direction]) == -1)
-    // {
-    //   usleep(1000);
-    //   continue;
-    // }
 
     //Check for termination flag
     if (Terminate){
@@ -146,15 +138,10 @@ int main(int argc, char *argv[])
       location[t][0] = side;
       location[t][1] = direction;
 
-      pthread_create(&threads[t], NULL, manage_light, (void *)location[t]); // added void here bc error???
+      pthread_create(&threads[t], NULL, manage_light, (void *)location[t]); 
       t++;
     }
   }
-
-  //  pthread_t threads[4];
-  // for(int i = 0; i < 4; i++){
-  // pthread_create(&threads[i], NULL, manage_light, (void*)&i); //added void here bc error???
-  // }
 
   // TODO: create a thread that executes supply_arrivals
   pthread_t sup_arr_thread;
