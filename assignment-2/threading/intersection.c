@@ -29,8 +29,36 @@ static Arrival curr_arrivals[4][3][20];
  */
 static sem_t semaphores[4][3];
 
-// made global since 1 car allowed
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+// mutexes:
+pthread_mutex_t path_mutexes[7];
+// where
+
+/*
+0->147
+1->2479
+2->258
+3->369
+4->46
+5->56
+6->57
+*/
+
+int mutexes_for_path[10][3] = { //3 since max ever is 3
+
+{-1,-1,-1}, //skip path 0 so its like 1-based indexing
+{0,-1,-1}, //path 1 which only uses mutex 0 which is 147
+{1,2,-1},
+{3,-1,-1},
+{0,1,4},
+{2,5,6},
+{3,4,5},
+{0,1,6},
+{2,-1,-1},
+{1,3,-1}
+
+};
+
+
 
 static bool Terminate = false;
 
@@ -95,7 +123,11 @@ static void *manage_light(void *arg)
     Arrival arrival = curr_arrivals[side][direction][index];
     index++;
 
-    pthread_mutex_lock(&mutex);
+    //pthread_mutex_lock(&mutex);
+    int path = get_path(side, direction);
+    lock_path_mutexes(path);
+
+    mutex_locker(arrival);
 
     // turn light green
     printf("traffic light %d %d turns green at time %d for car %d\n", arrival.side, arrival.direction, get_time_passed(), arrival.id);
@@ -105,10 +137,30 @@ static void *manage_light(void *arg)
     // turn light red
     printf("traffic light %d %d turns red at time %d\n", arrival.side, arrival.direction, get_time_passed());
 
-    pthread_mutex_unlock(&mutex);
+
+    //pthread_mutex_unlock(&mutex);
+    //ADD UNLOCK FUNCTION
+
   }
 
   return (0);
+}
+
+int get_path(Side side, Direction direction){
+  if (side==NORTH && direction ==RIGHT ) return 1;
+  //
+  //
+  return -1; //unused lane?
+}
+
+void lock_path_mutexes(int path){
+  for(int i=0; i<3;i++){
+  int m = mutexes_for_path[path][i];
+  if(m==-1){
+    break;
+  }
+  pthread_mutex_lock(&path_mutexes[m]);
+  }
 }
 
 int main(int argc, char *argv[])
