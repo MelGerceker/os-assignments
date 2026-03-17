@@ -30,7 +30,7 @@ static Arrival curr_arrivals[4][3][20];
 static sem_t semaphores[4][3];
 
 // mutexes:
-pthread_mutex_t path_mutexes[7];
+static pthread_mutex_t path_mutexes[7];
 // where
 
 /*
@@ -43,7 +43,7 @@ pthread_mutex_t path_mutexes[7];
 6->57
 */
 
-int mutexes_for_path[10][3] = { // 3 since max ever is 3
+static int mutexes_for_path[10][3] = { // 3 since max ever is 3
 
     {-1, -1, -1}, // skip path 0 so its like 1-based indexing
     {0, -1, -1},  // path 1 which only uses mutex 0 which is 147
@@ -245,6 +245,7 @@ int main(int argc, char *argv[])
     }
   }
 
+  //initialize mutexes
   for (int i = 0; i < 7; i++)
   {
     pthread_mutex_init(&path_mutexes[i], NULL);
