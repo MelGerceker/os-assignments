@@ -43,22 +43,20 @@ pthread_mutex_t path_mutexes[7];
 6->57
 */
 
-int mutexes_for_path[10][3] = { //3 since max ever is 3
+int mutexes_for_path[10][3] = { // 3 since max ever is 3
 
-{-1,-1,-1}, //skip path 0 so its like 1-based indexing
-{0,-1,-1}, //path 1 which only uses mutex 0 which is 147
-{1,2,-1},  //path 2 which uses mutex 1(2479) and mutex 2(258)
-{3,-1,-1}, 
-{0,1,4},
-{2,5,6},
-{3,4,5},
-{0,1,6},
-{2,-1,-1},
-{1,3,-1}
+    {-1, -1, -1}, // skip path 0 so its like 1-based indexing
+    {0, -1, -1},  // path 1 which only uses mutex 0 which is 147
+    {1, 2, -1},   // path 2 which uses mutex 1(2479) and mutex 2(258)
+    {3, -1, -1},
+    {0, 1, 4},
+    {2, 5, 6},
+    {3, 4, 5},
+    {0, 1, 6},
+    {2, -1, -1},
+    {1, 3, -1}
 
 };
-
-
 
 static bool Terminate = false;
 
@@ -115,15 +113,16 @@ static void *manage_light(void *arg)
 
     sem_wait(&semaphores[side][direction]);
 
-    //Check for termination flag
-    if (Terminate){
+    // Check for termination flag
+    if (Terminate)
+    {
       break;
     }
 
     Arrival arrival = curr_arrivals[side][direction][index];
     index++;
 
-    //pthread_mutex_lock(&mutex);
+    // pthread_mutex_lock(&mutex);
     int path = get_path(side, direction);
     lock_path_mutexes(path);
 
@@ -137,33 +136,85 @@ static void *manage_light(void *arg)
     // turn light red
     printf("traffic light %d %d turns red at time %d\n", arrival.side, arrival.direction, get_time_passed());
 
-
     unlock_all_mutexes();
-
   }
 
   return (0);
 }
 
-int get_path(Side side, Direction direction){
-  if (side==NORTH && direction ==RIGHT ) return 1;
-  //
-  //
-  return -1; //unused lane?
+int get_path(Side side, Direction direction)
+{
+  if (side == NORTH)
+  {
+    if (direction == RIGHT)
+    {
+      return 1;
+    }
+    if (direction == STRAIGHT)
+    {
+      return 2;
+    }
+  }
+
+  if (side == EAST)
+  {
+    if (direction == RIGHT)
+    {
+      return 3;
+    }
+    if (direction == STRAIGHT)
+    {
+      return 4;
+    }
+    if (direction == LEFT)
+    {
+      return 5;
+    }
+  }
+
+  if (side == SOUTH)
+  {
+    if (direction == STRAIGHT)
+    {
+      return 6;
+    }
+    if (direction == LEFT)
+    {
+      return 7;
+    }
+  }
+
+  if (side == WEST)
+  {
+    if (direction == RIGHT)
+    {
+      return 8;
+    }
+    if (direction == LEFT)
+    {
+      return 9;
+    }
+  }
+  return -1; // unused lane?
 }
 
-void lock_path_mutexes(int path){
-  for(int i=0; i<3;i++){
-  int m = mutexes_for_path[path][i];
-  if(m==-1){
-    break;
-  }
-  pthread_mutex_lock(&path_mutexes[m]);
+void lock_path_mutexes(int path)
+{
+  for (int i = 0; i < 3; i++)
+  {
+    int m = mutexes_for_path[path][i];
+    if (m == -1)
+    {
+      break;
+    }
+    pthread_mutex_lock(&path_mutexes[m]);
   }
 }
 
-void unlock_all_mutexes(){
-  for(int i=0;i<7;i++){
+void unlock_all_mutexes()
+{
+  for (int i = 0; i < 7; i++)
+  {
     pthread_mutex_unlock(&path_mutexes[i]);
   }
 }
@@ -195,7 +246,7 @@ int main(int argc, char *argv[])
       location[t][0] = side;
       location[t][1] = direction;
 
-      pthread_create(&threads[t], NULL, manage_light, (void *)location[t]); 
+      pthread_create(&threads[t], NULL, manage_light, (void *)location[t]);
       t++;
     }
   }
@@ -209,7 +260,7 @@ int main(int argc, char *argv[])
   pthread_join(sup_arr_thread, NULL);
 
   // Wait until endtime is reached and set Terminate flag
-  //for threads to terminate instead of trying to fetch new information.
+  // for threads to terminate instead of trying to fetch new information.
   sleep_until_arrival(END_TIME);
   Terminate = true;
   // release the threads by posting to each semaphore
