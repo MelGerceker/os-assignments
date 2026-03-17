@@ -87,62 +87,7 @@ static void *supply_arrivals()
   return (0);
 }
 
-/*
- * manage_light(void* arg)
- *
- * A function that implements the behaviour of a traffic light
- */
-static void *manage_light(void *arg)
-{
-  // TODO:
-  // while it is not END_TIME yet, repeatedly:
-  //  - wait for an arrival using the semaphore for this traffic light
-  //  - lock the right mutex(es)
-  //  - make the traffic light turn green
-  //  - sleep for CROSS_TIME seconds
-  //  - make the traffic light turn red
-  //  - unlock the right mutex(es)
-
-  int *info = (int *)arg;
-  Side side = info[0];
-  Direction direction = info[1];
-  int index = 0;
-
-  while (get_time_passed() < END_TIME)
-  {
-
-    sem_wait(&semaphores[side][direction]);
-
-    // Check for termination flag
-    if (Terminate)
-    {
-      break;
-    }
-
-    Arrival arrival = curr_arrivals[side][direction][index];
-    index++;
-
-    // pthread_mutex_lock(&mutex);
-    int path = get_path(side, direction);
-    lock_path_mutexes(path);
-
-    mutex_locker(arrival);
-
-    // turn light green
-    printf("traffic light %d %d turns green at time %d for car %d\n", arrival.side, arrival.direction, get_time_passed(), arrival.id);
-
-    sleep(CROSS_TIME);
-
-    // turn light red
-    printf("traffic light %d %d turns red at time %d\n", arrival.side, arrival.direction, get_time_passed());
-
-    unlock_all_mutexes();
-  }
-
-  return (0);
-}
-
-int get_path(Side side, Direction direction)
+static int get_path(Side side, Direction direction)
 {
   if (side == NORTH)
   {
@@ -198,7 +143,7 @@ int get_path(Side side, Direction direction)
   return -1; // unused lane?
 }
 
-void lock_path_mutexes(int path)
+static void lock_path_mutexes(int path)
 {
   for (int i = 0; i < 3; i++)
   {
@@ -211,13 +156,83 @@ void lock_path_mutexes(int path)
   }
 }
 
-void unlock_all_mutexes()
+static void unlock_appropriate_mutexes(int path)
 {
-  for (int i = 0; i < 7; i++)
+  for (int i = 0; i < 3; i++)
   {
-    pthread_mutex_unlock(&path_mutexes[i]);
+    int m = mutexes_for_path[path][i];
+    if (m == -1)
+    {
+      break;
+    }
+    pthread_mutex_unlock(&path_mutexes[m]);
   }
 }
+
+/*
+ * manage_light(void* arg)
+ *
+ * A function that implements the behaviour of a traffic light
+ */
+static void *manage_light(void *arg)
+{
+  // TODO:
+  // while it is not END_TIME yet, repeatedly:
+  //  - wait for an arrival using the semaphore for this traffic light
+  //  - lock the right mutex(es)
+  //  - make the traffic light turn green
+  //  - sleep for CROSS_TIME seconds
+  //  - make the traffic light turn red
+  //  - unlock the right mutex(es)
+
+  int *info = (int *)arg;
+  Side side = info[0];
+  Direction direction = info[1];
+  int index = 0;
+
+  while (get_time_passed() < END_TIME)
+  {
+
+    sem_wait(&semaphores[side][direction]);
+
+    // Check for termination flag
+    if (Terminate)
+    {
+      break;
+    }
+
+    Arrival arrival = curr_arrivals[side][direction][index];
+    index++;
+
+    // pthread_mutex_lock(&mutex);
+    int path = get_path(side, direction);
+
+
+    lock_path_mutexes(path);
+
+
+    // turn light green
+    printf("traffic light %d %d turns green at time %d for car %d\n", arrival.side, arrival.direction, get_time_passed(), arrival.id);
+
+    sleep(CROSS_TIME);
+
+    // turn light red
+    printf("traffic light %d %d turns red at time %d\n", arrival.side, arrival.direction, get_time_passed());
+
+    unlock_appropriate_mutexes(path);
+  }
+
+  return (0);
+}
+
+
+// void unlock_all_mutexes()
+// {  
+//   for (int i = 0; i < 7; i++)
+//   {
+//     pthread_mutex_unlock(&path_mutexes[i]);
+//   }
+// }
 
 int main(int argc, char *argv[])
 {
