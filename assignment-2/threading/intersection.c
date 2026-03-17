@@ -47,8 +47,8 @@ int mutexes_for_path[10][3] = { //3 since max ever is 3
 
 {-1,-1,-1}, //skip path 0 so its like 1-based indexing
 {0,-1,-1}, //path 1 which only uses mutex 0 which is 147
-{1,2,-1},
-{3,-1,-1},
+{1,2,-1},  //path 2 which uses mutex 1(2479) and mutex 2(258)
+{3,-1,-1}, 
 {0,1,4},
 {2,5,6},
 {3,4,5},
@@ -138,8 +138,7 @@ static void *manage_light(void *arg)
     printf("traffic light %d %d turns red at time %d\n", arrival.side, arrival.direction, get_time_passed());
 
 
-    //pthread_mutex_unlock(&mutex);
-    //ADD UNLOCK FUNCTION
+    unlock_all_mutexes();
 
   }
 
@@ -160,6 +159,12 @@ void lock_path_mutexes(int path){
     break;
   }
   pthread_mutex_lock(&path_mutexes[m]);
+  }
+}
+
+void unlock_all_mutexes(){
+  for(int i=0;i<7;i++){
+    pthread_mutex_unlock(&path_mutexes[i]);
   }
 }
 
