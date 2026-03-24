@@ -10,6 +10,6 @@
 #define END_TIME 40
 
 // the array of arrivals for the intersection
-const Arrival input_arrivals[] = {{0, NORTH, STRAIGHT, 0}, {1, WEST, LEFT, 1}, {2, SOUTH, STRAIGHT, 7}, {3, SOUTH, LEFT, 13}};
+const Arrival input_arrivals[] = {{2, EAST, LEFT, 1},  {3, EAST, STRAIGHT, 1},  {4, EAST, RIGHT, 1}};
 
 #endif
