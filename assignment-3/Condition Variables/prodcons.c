@@ -2,9 +2,10 @@
  * Operating Systems  (2INC0)  Practical Assignment.
  * Condition Variables Application.
  *
- * STUDENT_NAME_1 (STUDENT_NR_1)
- * STUDENT_NAME_2 (STUDENT_NR_2)
- *
+ * Rovshan Ayyubov (2157470)
+ * Yagmur Yilmaz (2107724)
+ * Melisa Gerceker (2134160)
+ * 
  * Grading:
  * Students who hand in clean code that fully satisfies the minimum requirements will get an 8.
  * Extra steps can lead to higher marks because we want students to take the initiative.
@@ -26,17 +27,19 @@ static ITEM buffer[BUFFER_SIZE];
 static void rsleep(int t);		 // already implemented (see below)
 static ITEM get_next_item(void); // already implemented (see below)
 
-static ITEM expected_item = 1;
+// ordering administration
+static ITEM expected_item = 0;
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 
-// indexes for buffer since there is no append() function of buffer.
-// Producer index:
-static int i = 0;
+// buffer administration for FIFO 
+static int in = 0;
+static int out = 0;
+static int count = 0;
 
-// customer index:
-static int j = 0;
+// termination administration 
+static int producers_done = 0;
 
 /* producer thread */
 static void *
@@ -50,6 +53,11 @@ producer(void *arg)
 
 		if (curr_item == NROF_ITEMS)
 		{ // We are done.
+            pthread_mutex_lock(&mutex);
+            producers_done++;
+            /* wake consumer in case it is waiting on an empty buffer */
+            pthread_cond_signal(&condition);
+            pthread_mutex_unlock(&mutex);
 			break;
 		}
 
@@ -62,14 +70,17 @@ producer(void *arg)
 		//      mutex-lock;
 		pthread_mutex_lock(&mutex);
 		//      while not condition-for-this-producer
-		while (curr_item != expected_item)
+		while (count == BUFFER_SIZE || curr_item != expected_item)
 		{
 			//          wait-cv;
 			pthread_cond_wait(&condition, &mutex);
 		}
-		//      critical-section;
-		buffer[i++] = curr_item;
-		expected_item += 1;
+		// critical section: insert item into FIFO buffer 
+        buffer[in] = curr_item;
+        in = (in + 1) % BUFFER_SIZE;
+        count++;
+        expected_item++;
+		
 		//      possible-cv-signals;
 		pthread_cond_broadcast(&condition);
 		//      mutex-unlock;
@@ -81,32 +92,43 @@ producer(void *arg)
 
 /* consumer thread */
 static void *
-consumer(void *arg)
+consumer(void * arg)
 {
-	while (j < NROF_ITEMS - 1)
-	{
-		// TODO:
-		// * get the next item from buffer[]
-		// * print the number to stdout
-		//
-		// follow this pseudocode (according to the ConditionSynchronization lecture):
-		//      mutex-lock;
-		pthread_mutex_lock(&mutex);
-		//      while not condition-for-this-consumer
-		while (i <= j)
-		{
-			//          wait-cv;
-			pthread_cond_wait(&condition, &mutex);
-		}
-		//      critical-section;
-		ITEM item = buffer[j];
-		printf("%d\n", item);
-		j += 1;
-		//      possible-cv-signals;
-		pthread_cond_signal(&condition);
-		//      mutex-unlock;
-		pthread_mutex_unlock(&mutex);
-		rsleep(100); // simulating all kind of activities...
+	while (true)
+    {
+		// TODO: 
+		// * get the next item from buffer[] 
+		// * print the number to stdout 
+		// follow this pseudocode (according to the ConditionSynchronization lecture): 
+		// mutex-lock; 
+		// while not condition-for-this-consumer 
+		// wait-cv; 
+		// critical-section; 
+		// possible-cv-signals; 
+		// mutex-unlock;
+        pthread_mutex_lock(&mutex);
+
+        while (count == 0)
+        {
+            if (producers_done == NROF_PRODUCERS)
+            {
+                pthread_mutex_unlock(&mutex);
+                return NULL;
+            }
+            pthread_cond_wait(&condition, &mutex);
+        }
+
+        ITEM item = buffer[out];
+        out = (out + 1) % BUFFER_SIZE;
+        count--;
+
+        pthread_cond_broadcast(&condition);
+
+        pthread_mutex_unlock(&mutex);
+
+        printf("%d\n", item);
+
+        rsleep(100); // simulating all kind of activities...
 	}
 	return (NULL);
 }
@@ -119,24 +141,41 @@ int main(void)
 	// Create producer threads
 	for (int k = 0; k < NROF_PRODUCERS; k++)
 	{
-		pthread_create(&producer_threads[k], NULL, producer, NULL);
+		if (pthread_create(&producer_threads[k], NULL, producer, NULL) != 0)
+        {
+            perror("pthread_create producer");
+            exit(EXIT_FAILURE);
+        }
 	}
 
-	// Create consumer thread
-	pthread_create(&consumer_thread, NULL, consumer, NULL);
 
-	// Wait for all producer_threads to finish
-	for (int k = 0; k < NROF_PRODUCERS; k++)
-	{
-		pthread_join(producer_threads[k], NULL);
-	}
+    // startup consumer thread 
+    if (pthread_create(&consumer_thread, NULL, consumer, NULL) != 0)
+    {
+        perror("pthread_create consumer");
+        exit(EXIT_FAILURE);
+    }
 
-	// Wait for consumer to finish
-	pthread_join(consumer_thread, NULL);
+    // wait until all producer threads are finished 
+    for (int k = 0; k < NROF_PRODUCERS; k++)
+    {
+        if (pthread_join(producer_threads[k], NULL) != 0)
+        {
+            perror("pthread_join producer");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /* wait until consumer thread is finished */
+    if (pthread_join(consumer_thread, NULL) != 0)
+    {
+        perror("pthread_join consumer");
+        exit(EXIT_FAILURE);
+    }
 
 	return 0;
 
-	return (0);
+	//return (0);
 }
 
 /*
