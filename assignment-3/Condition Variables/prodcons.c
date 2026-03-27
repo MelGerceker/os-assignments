@@ -32,14 +32,12 @@ static ITEM expected_item = 0;
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_cond_t not_full = PTHREAD_COND_INITIALIZER;
-pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
-pthread_cond_t correct_order = PTHREAD_COND_INITIALIZER;
+pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 
-//counters for stderr
-static int signal_count = 0;
-static int broadcast_count = 0;
-static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// counts
+static int signal_single_count = 0;
+static int signal_broadcast_count = 0;
 
 //buffer variables:
 //write index:
@@ -51,22 +49,6 @@ static int count = 0;
 
 //to track producer thread terminations:
 static int producers_done = 0;
-
-void my_signal(pthread_cond_t *cond) {
-    pthread_mutex_lock(&count_mutex);
-    signal_count++;
-    pthread_mutex_unlock(&count_mutex);
-
-    pthread_cond_signal(cond);
-}
-
-void my_broadcast(pthread_cond_t *cond) {
-    pthread_mutex_lock(&count_mutex);
-    broadcast_count++;
-    pthread_mutex_unlock(&count_mutex);
-
-    pthread_cond_broadcast(cond);
-}
 
 /* producer thread */
 static void *
@@ -83,7 +65,10 @@ producer(void *arg)
             pthread_mutex_lock(&mutex);
             producers_done++;
             // wake consumer in case it is waiting on an empty buffer 
-            my_signal(&not_empty);
+
+            signal_single_count++;
+			pthread_cond_signal(&condition);
+
             pthread_mutex_unlock(&mutex);
 			break;
 		}
@@ -99,10 +84,10 @@ producer(void *arg)
 		//      while not condition-for-this-producer
 		//condition = 
 		while (count == BUFFER_SIZE){
-    		pthread_cond_wait(&not_full, &mutex);
+    		pthread_cond_wait(&condition, &mutex);
 		}
 		while (curr_item != expected_item){
-			pthread_cond_wait(&correct_order, &mutex);
+			pthread_cond_wait(&condition, &mutex);
 		}
 		// critical section: insert item into FIFO buffer 
         buffer[in] = curr_item;
@@ -111,8 +96,8 @@ producer(void *arg)
         expected_item++;
 		
 		//      possible-cv-signals;
-		my_signal(&not_empty);
-		my_broadcast(&correct_order);
+		signal_broadcast_count++;
+		pthread_cond_broadcast(&condition);
 
 		//      mutex-unlock;
 		pthread_mutex_unlock(&mutex);
@@ -148,7 +133,7 @@ consumer(void * arg)
                 pthread_mutex_unlock(&mutex);
                 return NULL;
             }
-            pthread_cond_wait(&not_empty, &mutex);
+            pthread_cond_wait(&condition, &mutex);
         }
 
 		//else, process the new information:
@@ -156,7 +141,8 @@ consumer(void * arg)
         out = (out + 1) % BUFFER_SIZE;
         count--;
 
-		my_signal(&not_full);
+		signal_broadcast_count++;
+		pthread_cond_broadcast(&condition);
 
         pthread_mutex_unlock(&mutex);
 
@@ -192,8 +178,7 @@ int main(void)
     // wait until consumer thread is finished
     pthread_join(consumer_thread, NULL);
 
-	fprintf(stderr, "Signals: %d\n", signal_count);
-	fprintf(stderr, "Broadcasts: %d\n", broadcast_count);
+	printf("%d, %d\n", signal_broadcast_count, signal_single_count);
 
 	return (0);
 }
