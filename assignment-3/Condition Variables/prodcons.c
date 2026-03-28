@@ -32,10 +32,10 @@ static ITEM expected_item = 0;
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Condition variables
 static pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t not_full = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t expected_changed = PTHREAD_COND_INITIALIZER;
-
 
 // counts
 static int signal_single_count = 0;
@@ -66,11 +66,11 @@ producer(void *arg)
 		{ // We are done.
             pthread_mutex_lock(&mutex);
             producers_done++;
-            // wake consumer in case it is waiting on an empty buffer 
 
-			if(producers_done==NROF_PRODUCERS){
-            signal_single_count++;
-			pthread_cond_signal(&not_empty);
+            // wake consumer in case it is waiting on an empty buffer and all producers are done
+			if (producers_done==NROF_PRODUCERS){
+				signal_single_count++;
+				pthread_cond_signal(&not_empty);
 			}
 
             pthread_mutex_unlock(&mutex);
@@ -112,9 +112,9 @@ producer(void *arg)
 		//      possible-cv-signals;
 
 		if(was_empty){
-		//wake consumer
-		signal_single_count++;
-		pthread_cond_signal(&not_empty);
+			//wake consumer since buffer was empty but not anymore (count++)
+			signal_single_count++;
+			pthread_cond_signal(&not_empty);
 		}
 
 		//wake producers
@@ -165,10 +165,10 @@ consumer(void * arg)
         out = (out + 1) % BUFFER_SIZE;
         count--;
 
-		//changed broadcast to single??
+		// buffer was full but consumer read one (count--)
 		if (was_full){
-			signal_single_count++;
-			pthread_cond_signal(&not_full);
+			signal_broadcast_count++;
+			pthread_cond_broadcast(&not_full);
 		}
 
         pthread_mutex_unlock(&mutex);
