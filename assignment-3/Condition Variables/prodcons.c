@@ -32,7 +32,9 @@ static ITEM expected_item = 0;
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t not_full = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t expected_changed = PTHREAD_COND_INITIALIZER;
 
 
 // counts
@@ -67,7 +69,7 @@ producer(void *arg)
             // wake consumer in case it is waiting on an empty buffer 
 
             signal_single_count++;
-			pthread_cond_signal(&condition);
+			pthread_cond_signal(&not_empty);
 
             pthread_mutex_unlock(&mutex);
 			break;
@@ -83,11 +85,18 @@ producer(void *arg)
 		pthread_mutex_lock(&mutex);
 		//      while not condition-for-this-producer
 		//condition = 
-		while (count == BUFFER_SIZE){
-    		pthread_cond_wait(&condition, &mutex);
+
+		while (count == BUFFER_SIZE){ //first wait for space
+    		pthread_cond_wait(&not_full, &mutex);
 		}
-		while (curr_item != expected_item){
-			pthread_cond_wait(&condition, &mutex);
+
+		while (curr_item != expected_item){ //then wait for expected item
+			pthread_cond_wait(&expected_changed, &mutex);
+
+			//this might have made the buffer full
+			while (count == BUFFER_SIZE){
+    			pthread_cond_wait(&not_full, &mutex);
+			}
 		}
 		// critical section: insert item into FIFO buffer 
         buffer[in] = curr_item;
@@ -96,8 +105,14 @@ producer(void *arg)
         expected_item++;
 		
 		//      possible-cv-signals;
+
+		//wake consumer
+		signal_single_count++;
+		pthread_cond_signal(&not_empty);
+
+		//wake producers
 		signal_broadcast_count++;
-		pthread_cond_broadcast(&condition);
+		pthread_cond_broadcast(&expected_changed);
 
 		//      mutex-unlock;
 		pthread_mutex_unlock(&mutex);
@@ -133,7 +148,7 @@ consumer(void * arg)
                 pthread_mutex_unlock(&mutex);
                 return NULL;
             }
-            pthread_cond_wait(&condition, &mutex);
+            pthread_cond_wait(&not_empty, &mutex);
         }
 
 		//else, process the new information:
@@ -141,8 +156,9 @@ consumer(void * arg)
         out = (out + 1) % BUFFER_SIZE;
         count--;
 
+		//changed broadcast to single??
 		signal_broadcast_count++;
-		pthread_cond_broadcast(&condition);
+		pthread_cond_broadcast(&not_full);
 
         pthread_mutex_unlock(&mutex);
 
