@@ -68,8 +68,10 @@ producer(void *arg)
             producers_done++;
             // wake consumer in case it is waiting on an empty buffer 
 
+			if(producers_done==NROF_PRODUCERS){
             signal_single_count++;
 			pthread_cond_signal(&not_empty);
+			}
 
             pthread_mutex_unlock(&mutex);
 			break;
@@ -98,6 +100,9 @@ producer(void *arg)
     			pthread_cond_wait(&not_full, &mutex);
 			}
 		}
+
+		bool was_empty=(count==0);
+
 		// critical section: insert item into FIFO buffer 
         buffer[in] = curr_item;
         in = (in + 1) % BUFFER_SIZE;
@@ -106,9 +111,11 @@ producer(void *arg)
 		
 		//      possible-cv-signals;
 
+		if(was_empty){
 		//wake consumer
 		signal_single_count++;
 		pthread_cond_signal(&not_empty);
+		}
 
 		//wake producers
 		signal_broadcast_count++;
@@ -151,14 +158,18 @@ consumer(void * arg)
             pthread_cond_wait(&not_empty, &mutex);
         }
 
+		bool was_full = (count == BUFFER_SIZE);
+
 		//else, process the new information:
         ITEM item = buffer[out];
         out = (out + 1) % BUFFER_SIZE;
         count--;
 
 		//changed broadcast to single??
-		signal_broadcast_count++;
-		pthread_cond_broadcast(&not_full);
+		if (was_full){
+			signal_single_count++;
+			pthread_cond_signal(&not_full);
+		}
 
         pthread_mutex_unlock(&mutex);
 
